@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duplicate Remover & Splitter</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        #bgVideo {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            z-index: -1;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 14px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+            max-width: 550px;
+            width: 100%;
+            position: relative;
+        }
+        h2 {
+            color: #2c3e50;
+            margin-top: 0;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #34495e;
+        }
+        input[type="file"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.95);
+        }
+        .action-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .action-btn:hover {
+            background-color: #219150;
+        }
+        .result-box {
+            margin-top: 25px;
+            padding: 15px;
+            background: rgba(238, 249, 241, 0.95);
+            border-radius: 8px;
+            display: none;
+        }
+        .stats {
+            margin-bottom: 15px;
+            line-height: 1.6;
+            color: #2c3e50;
+        }
+        .download-btns {
+            display: flex;
+            gap: 10px;
+            flex-direction: column;
+        }
+        .btn-clean { background-color: #2980b9; }
+        .btn-clean:hover { background-color: #2471a3; }
+        .btn-dup { background-color: #e67e22; }
+        .btn-dup:hover { background-color: #d35400; }
+    </style>
+</head>
+<body>
+
+<video id="bgVideo" autoplay loop muted playsinline>
+    <source src="bg.mp4" type="video/mp4">
+</video>
+
+<div class="container">
+    <h2>Duplicate Remover & Splitter</h2>
+    
+    <div class="form-group">
+        <label for="fileInput">1. Select Text File (.txt):</label>
+        <input type="file" id="fileInput" accept=".txt">
+    </div>
+
+    <div class="form-group">
+        <label for="modeSelect">2. Detection Mode:</label>
+        <select id="modeSelect">
+            <option value="email">Match by Email Address Only</option>
+            <option value="line">Match by Exact Full Line</option>
+        </select>
+    </div>
+
+    <button class="action-btn" onclick="processFile()">Process File</button>
+
+    <div class="result-box" id="resultBox">
+        <div class="stats" id="statsText"></div>
+        <div class="download-btns">
+            <button class="action-btn btn-clean" onclick="downloadFile('clean')">Download Clean (Unique) File</button>
+            <button class="action-btn btn-dup" onclick="downloadFile('duplicate')">Download Duplicate File</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let cleanLines = [];
+    let duplicateLines = [];
+
+    function processFile() {
+        const fileInput = document.getElementById('fileInput');
+        const mode = document.getElementById('modeSelect').value;
+
+        if (!fileInput.files.length) {
+            alert("Please select a .txt file first!");
+            return;
+        }
+
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            const text = e.target.result;
+            const lines = text.split(/\r?\n/);
+            
+            const seen = new Set();
+            cleanLines = [];
+            duplicateLines = [];
+            let totalValidLines = 0;
+
+            const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) return;
+                totalValidLines++;
+
+                let key = trimmedLine.toLowerCase();
+
+                if (mode === 'email') {
+                    const match = trimmedLine.match(emailRegex);
+                    if (match) {
+                        key = match[0].toLowerCase();
+                    }
+                }
+
+                if (seen.has(key)) {
+                    duplicateLines.push(trimmedLine);
+                } else {
+                    seen.add(key);
+                    cleanLines.push(trimmedLine);
+                }
+            });
+
+            document.getElementById('statsText').innerHTML = `
+                <strong>Total Lines:</strong> ${totalValidLines}<br>
+                <strong>Unique (Clean) Lines:</strong> ${cleanLines.length}<br>
+                <strong>Duplicate Lines:</strong> ${duplicateLines.length}
+            `;
+            document.getElementById('resultBox').style.display = 'block';
+        };
+
+        reader.readAsText(file);
+    }
+
+    function downloadFile(type) {
+        let content = "";
+        let filename = "";
+
+        if (type === 'clean') {
+            content = cleanLines.join('\n');
+            filename = "clean_unique_data.txt";
+        } else {
+            content = duplicateLines.join('\n');
+            filename = "duplicate_accounts.txt";
+        }
+
+        if (!content) {
+            alert("No data available to download in this file!");
+            return;
+        }
+
+        const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+    }
+</script>
+
+</body>
+</html>
